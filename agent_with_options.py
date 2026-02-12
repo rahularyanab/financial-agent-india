@@ -13,6 +13,8 @@ Usage:
 import argparse
 import json
 import sys
+from datetime import datetime, timedelta
+import calendar
 
 import anthropic
 
@@ -32,7 +34,7 @@ When given OHLCV data and an options chain, you cross-reference:
 - Key support/resistance implied by max pain or high OI strikes
 
 You MUST respond with ONLY a valid JSON object. No markdown, no code fences, no text outside
-the JSON. The JSON must have exactly these fields:
+ the JSON. The JSON must have exactly these fields:
 
 {
     "trend": "bullish" | "bearish" | "sideways",
@@ -47,7 +49,35 @@ the JSON. The JSON must have exactly these fields:
     "summary": "<3-4 sentences covering both price action and options analysis>",
     "options_insight": "<2-3 sentences specifically about what the options market is telling us>",
     "confidence": "high" | "medium" | "low"
-}"""
+}"
+
+
+def get_next_expiry_date() -> str:
+    """
+    Calculate the next monthly F&O expiry date (last Thursday of the month).
+    Returns date in ddMMMyyyy format (e.g., "27FEB2026").
+    """
+    today = datetime.now()
+    year = today.year
+    month = today.month
+    
+    last_day = calendar.monthrange(year, month)[1]
+    last_date = datetime(year, month, last_day)
+    days_back = (last_date.weekday() - 3) % 7
+    last_thursday = last_date - timedelta(days=days_back)
+    
+    if last_thursday < today:
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+        last_day = calendar.monthrange(year, month)[1]
+        last_date = datetime(year, month, last_day)
+        days_back = (last_date.weekday() - 3) % 7
+        last_thursday = last_date - timedelta(days=days_back)
+    
+    return last_thursday.strftime("%d%b%Y").upper()
 
 
 def fetch_option_chain(smart_api, symbol: str, token: str, exchange: str = "NFO") -> dict | None:
@@ -57,11 +87,14 @@ def fetch_option_chain(smart_api, symbol: str, token: str, exchange: str = "NFO"
     Returns the raw option chain response, or None on failure.
     """
     print(f"Fetching option chain for {symbol}...")
+    
+    expiry_date = get_next_expiry_date()
+    print(f"Using expiry date: {expiry_date}")
 
     try:
         response = smart_api.optionGreek({
             "name": symbol,
-           """ "expirydate": "",  # empty string gets the nearest expiry  """
+            "expirydate": expiry_date,
         })
     except Exception as e:
         print(f"Option chain API call failed: {e}")
@@ -206,16 +239,16 @@ def print_report(analysis: dict, symbol: str) -> None:
     print(f"\n{border}")
     print(f"  ANALYSIS REPORT: {symbol} (with Options)")
     print(border)
-    print()
+    print()  
     print(f"  Trend:              {analysis['trend'].upper()}")
     print(f"  Confidence:         {analysis['confidence'].capitalize()}")
-    print()
+    print()  
     print(f"  Support:            ₹{analysis['support']:,.2f}")
     print(f"  Resistance:         ₹{analysis['resistance']:,.2f}")
-    print()
+    print()  
     print(f"  Avg Volume:         {analysis['avg_volume']:,.0f}")
     print(f"  Volume Trend:       {analysis['volume_trend'].capitalize()}")
-    print()
+    print()  
 
     # Options section
     options_sentiment = analysis.get("options_sentiment", "N/A")
@@ -228,7 +261,7 @@ def print_report(analysis: dict, symbol: str) -> None:
     print(f"  PCR Signal:         {pcr}")
     if max_pain:
         print(f"  Max Pain:           ₹{max_pain:,.2f}")
-    print()
+    print()  
 
     # Summary
     def wrap_print(label: str, text: str):
@@ -247,7 +280,7 @@ def print_report(analysis: dict, symbol: str) -> None:
         print(f"  {label}:")
         for line in lines:
             print(f" {line}")
-        print()
+        print()  
 
     wrap_print("Summary", analysis.get("summary", ""))
     wrap_print("Options Insight", analysis.get("options_insight", ""))
