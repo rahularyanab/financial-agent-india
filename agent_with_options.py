@@ -61,7 +61,7 @@ def fetch_option_chain(smart_api, symbol: str, token: str, exchange: str = "NFO"
     try:
         response = smart_api.optionGreek({
             "name": symbol,
-            "expirydate": "",  # empty string gets the nearest expiry
+           """ "expirydate": "",  # empty string gets the nearest expiry  """
         })
     except Exception as e:
         print(f"Option chain API call failed: {e}")
